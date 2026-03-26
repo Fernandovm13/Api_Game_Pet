@@ -11,20 +11,28 @@ function clamp(value, min = 0, max = 100) {
 
 function deriveMood(pet, stats) {
   if (pet.is_sleeping) return 'sleeping';
-  if (stats.hunger >= 80) return 'hungry';
+  if (stats.hunger <= 20) return 'hungry';
   if (stats.energy <= 20) return 'tired';
+  if (stats.happiness <= 20) return 'bored';
   if (stats.happiness >= 80) return 'happy';
   return 'neutral';
 }
 
+
 function calculateLevel(experience) {
-  return Math.floor(experience / 100) + 1;
+  const BASE_XP = 900; 
+  if (experience < BASE_XP) {
+    return Math.floor(experience / 100) + 1;
+  } else {
+    const extraXP = experience - BASE_XP;
+    return 10 + Math.floor(extraXP / 200);
+  }
 }
 
 function decayStats(bundle) {
   const now = Date.now();
-  const last = new Date(bundle.stats_updated_at || new Date()).getTime();
-  const hours = Math.max(0, (now - last) / 3600000);
+  const lastUpdate = new Date(bundle.stats_updated_at || new Date()).getTime();
+  const minutesPassed = Math.max(0, (now - lastUpdate) / 60000);
 
   const stats = {
     hunger: bundle.hunger,
@@ -36,52 +44,60 @@ function decayStats(bundle) {
 
   let isSleeping = !!bundle.is_sleeping;
 
-  if (hours < 0.05) {
-    return { changed: false, stats, hours, isSleeping };
+  if (minutesPassed < 1) {
+    return { changed: false, stats, minutesPassed, isSleeping };
   }
 
   if (isSleeping) {
-    stats.energy = clamp(stats.energy + hours * 15); // Faster recovery
-    stats.hunger = clamp(stats.hunger + hours * 2);
-    stats.happiness = clamp(stats.happiness - hours * 1);
+    stats.energy = clamp(stats.energy + minutesPassed * 2);
+    
+    stats.hunger = clamp(stats.hunger - minutesPassed * 0.5);
+    stats.happiness = clamp(stats.happiness - minutesPassed * 0.1);
 
-    // Auto-wake if energy is full
     if (stats.energy >= 100) {
       isSleeping = false;
     }
   } else {
-    stats.energy = clamp(stats.energy - hours * 10);
-    stats.hunger = clamp(stats.hunger + hours * 10);
-    stats.happiness = clamp(stats.happiness - hours * 5);
+    stats.hunger = clamp(stats.hunger - minutesPassed * 2);
+    stats.energy = clamp(stats.energy - minutesPassed * 0.5);
+    stats.happiness = clamp(stats.happiness - minutesPassed * 0.5);
   }
 
-  return { changed: true, stats, hours, isSleeping };
+  return { changed: true, stats, minutesPassed, isSleeping };
 }
 
 function buildEvents(prevStats, nextStats, isSleeping) {
   const events = [];
 
-  if (prevStats.hunger < 85 && nextStats.hunger >= 85) {
+  if (nextStats.hunger <= 20 && prevStats.hunger > 20) {
     events.push({
       type: 'HUNGER',
-      title: 'Tu mascota tiene hambre',
-      body: 'Necesita comida pronto.'
+      title: 'Tengo hambre',
+      body: 'Neo necesita comer algo pronto.'
     });
   }
 
-  if (!isSleeping && prevStats.energy > 15 && nextStats.energy <= 15) {
+  if (!isSleeping && nextStats.energy <= 20 && prevStats.energy > 20) {
     events.push({
       type: 'TIRED',
-      title: 'Tu mascota está cansada',
-      body: 'Es hora de dormir o descansar.'
+      title: 'Tengo sueño',
+      body: 'Neo necesita dormir para recuperar energía.'
+    });
+  }
+
+  if (!isSleeping && nextStats.happiness <= 20 && prevStats.happiness > 20) {
+    events.push({
+      type: 'BORED',
+      title: 'Estoy aburrido',
+      body: '¡Neo quiere jugar contigo!'
     });
   }
 
   if (nextStats.level > prevStats.level) {
     events.push({
       type: 'LEVEL_UP',
-      title: '¡Subida de nivel!',
-      body: `Tu mascota ahora es nivel ${nextStats.level}.`
+      title: '¡Sube de nivel!',
+      body: `Neo ha alcanzado el nivel ${nextStats.level}.`
     });
   }
 
@@ -151,28 +167,29 @@ async function applyAction(userId, action, payload = {}) {
   switch (action) {
     case 'feed':
       if (pet.is_sleeping) throw new Error('No puedes alimentar a una mascota dormida.');
-      stats.hunger = clamp(stats.hunger - 35);
-      stats.happiness = clamp(stats.happiness + 5);
+      if (stats.hunger >= 100) throw new Error('Neo ya está lleno, no quiere comer más.');
+      stats.hunger = clamp(stats.hunger + 30);
       stats.experience += 10;
       break;
 
     case 'play':
       if (pet.is_sleeping) throw new Error('No puedes jugar con una mascota dormida.');
-      if (stats.energy < 10) throw new Error('Tu mascota está demasiado cansada para jugar.');
-      stats.happiness = clamp(stats.happiness + 20);
-      stats.energy = clamp(stats.energy - 15);
-      stats.hunger = clamp(stats.hunger + 10);
+      if (stats.energy < 10) throw new Error('Neo está demasiado cansado para jugar.');
+      if (stats.happiness >= 100) throw new Error('Neo ya está muy feliz, no quiere jugar más por ahora.');
+      stats.happiness = clamp(stats.happiness + 25);
+      stats.hunger = clamp(stats.hunger - 10);
+      stats.energy = clamp(stats.energy - 5);
       stats.experience += 15;
       break;
 
     case 'sleep':
-      if (pet.is_sleeping) return state; // Already sleeping
-      if (stats.energy >= 95) throw new Error('Tu mascota no tiene sueño ahora.');
+      if (pet.is_sleeping) return state; 
+      if (stats.energy >= 95) throw new Error('Neo no tiene sueño ahora.');
       pet.is_sleeping = true;
       break;
 
     case 'wake':
-      if (!pet.is_sleeping) return state; // Already awake
+      if (!pet.is_sleeping) return state; 
       pet.is_sleeping = false;
       break;
 
@@ -180,7 +197,7 @@ async function applyAction(userId, action, payload = {}) {
       if (pet.is_sleeping) {
         stats.happiness = clamp(stats.happiness + 2);
       } else {
-        stats.happiness = clamp(stats.happiness + 8);
+        stats.happiness = clamp(stats.happiness + 10);
         stats.experience += 5;
       }
       break;
@@ -189,7 +206,6 @@ async function applyAction(userId, action, payload = {}) {
       throw new Error(`Acción "${action}" no soportada.`);
   }
 
-  // Recalculate level
   stats.level = calculateLevel(stats.experience);
 
   const mood = deriveMood(pet, stats);

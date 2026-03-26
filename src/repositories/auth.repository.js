@@ -34,33 +34,40 @@ async function updateUser(id, { email, name, avatarUrl }) {
 }
 
 async function ensureDefaultPet(userId) {
-  const [rows] = await db.query(
-    'SELECT * FROM pets WHERE user_id = ? LIMIT 1',
+  const [fullRows] = await db.query(
+    `SELECT p.* FROM pets p
+     INNER JOIN pet_stats s ON s.pet_id = p.id
+     WHERE p.user_id = ? LIMIT 1`,
     [userId]
   );
 
-  if (rows.length) return rows[0];
+  if (fullRows.length) return fullRows[0];
 
-  const [result] = await db.query(
-    `INSERT INTO pets (user_id, name, species, level, experience, mood, is_sleeping)
-     VALUES (?, 'Neo', 'Mascota', 1, 0, 'neutral', 0)`,
-    [userId]
-  );
+  const [petOnly] = await db.query('SELECT id FROM pets WHERE user_id = ? LIMIT 1', [userId]);
+  let petId;
 
-  const petId = result.insertId;
+  if (!petOnly.length) {
+    const [result] = await db.query(
+      `INSERT INTO pets (user_id, name, species, level, experience, mood, is_sleeping)
+       VALUES (?, 'Neo', 'Mascota', 1, 0, 'neutral', 0)`,
+      [userId]
+    );
+    petId = result.insertId;
+  } else {
+    petId = petOnly[0].id;
+  }
 
-  await db.query(
-    `INSERT INTO pet_stats (pet_id, hunger, energy, happiness, hygiene)
-     VALUES (?, 20, 80, 70, 80)`,
-    [petId]
-  );
+  const [statsOnly] = await db.query('SELECT id FROM pet_stats WHERE pet_id = ? LIMIT 1', [petId]);
+  if (!statsOnly.length) {
+    await db.query(
+      `INSERT INTO pet_stats (pet_id, hunger, energy, happiness)
+       VALUES (?, 20, 80, 70)`,
+      [petId]
+    );
+  }
 
-  const [petRows] = await db.query(
-    'SELECT * FROM pets WHERE id = ? LIMIT 1',
-    [petId]
-  );
-
-  return petRows[0];
+  const [finalRows] = await db.query('SELECT * FROM pets WHERE id = ? LIMIT 1', [petId]);
+  return finalRows[0];
 }
 
 module.exports = {

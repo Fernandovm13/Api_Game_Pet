@@ -16,6 +16,8 @@ async function getPetBundleByUserId(userId) {
       p.mood,
       p.is_sleeping,
       p.image_url,
+      s.hunger,
+      s.energy,
       s.happiness,
       s.last_fed_at,
       s.last_played_at,
