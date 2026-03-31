@@ -1,7 +1,7 @@
 {
-  "name": "api_game",
+  "name": "api_fit",
   "version": "1.0.0",
-  "description": "API Game Backend",
+  "description": "AuraFit Pro Backend - Smart Personal Trainer",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

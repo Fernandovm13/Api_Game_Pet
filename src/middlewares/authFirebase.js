@@ -1,23 +1,22 @@
 const admin = require('../config/firebase');
 
-module.exports = async function authFirebase(req, res, next) {
+const authFirebase = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'No se envió el token de autenticación.' });
+  }
+
+  const idToken = authHeader.split('Bearer ')[1];
+
   try {
-    const authHeader = req.headers.authorization || '';
-    const token = authHeader.startsWith('Bearer ')
-      ? authHeader.split(' ')[1]
-      : null;
-
-    if (!token) {
-      return res.status(401).json({ message: 'Falta token Bearer.' });
-    }
-
-    const decoded = await admin.auth().verifyIdToken(token);
-    req.firebaseUser = decoded;
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    req.user = decodedToken;
     next();
   } catch (error) {
-    return res.status(401).json({
-      message: 'Token inválido o expirado.',
-      error: error.message
-    });
+    console.error('Error al verificar token:', error);
+    res.status(401).json({ message: 'Token de autenticación inválido o expirado.' });
   }
 };
+
+module.exports = authFirebase;

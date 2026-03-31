@@ -1,15 +1,9 @@
-const router = require('express').Router();
+const express = require('express');
+const notificationController = require('../controllers/notification.controller');
 const authFirebase = require('../middlewares/authFirebase');
-const loadUser = require('../middlewares/loadUser');
-const {
-  listMyNotifications,
-  markAsRead
-} = require('../controllers/notification.controller');
 
-router.use(authFirebase);
-router.use(loadUser);
+const router = express.Router();
 
-router.get('/me', listMyNotifications);
-router.patch('/:id/read', markAsRead);
+router.post('/send-test', authFirebase, notificationController.sendTestNotification);
 
 module.exports = router;

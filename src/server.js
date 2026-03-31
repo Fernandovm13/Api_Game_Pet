@@ -1,28 +1,37 @@
+const http = require('http');
+const socketIo = require('socket.io');
+const app = require('./app');
 require('dotenv').config();
 
-const http = require('http');
-const { Server } = require('socket.io');
-const app = require('./app');
-
-const PORT = process.env.PORT || 3000;
-
 const server = http.createServer(app);
-
-const io = new Server(server, {
+const io = socketIo(server, {
   cors: {
-    origin: process.env.CORS_ORIGIN === '*' ? true : process.env.CORS_ORIGIN,
-    credentials: true
+    origin: "*",
+    methods: ["GET", "POST"]
   }
 });
 
-app.set('io', io);
+const PORT = process.env.PORT || 3000;
 
 io.on('connection', (socket) => {
-  socket.on('join:user', (userId) => {
-    if (userId) socket.join(`user:${userId}`);
+  console.log('User Connected (AuraFit Pro):', socket.id);
+
+  socket.on('join_duel', (room) => {
+    socket.join(room);
+    console.log(`User ${socket.id} joined duel room: ${room}`);
+  });
+
+  socket.on('rep_completed', (data) => {
+    socket.to(data.room).emit('friend_rep', data);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('User Disconnected:', socket.id);
   });
 });
 
 server.listen(PORT, () => {
-  console.log(`API corriendo en http://localhost:${PORT}`);
+  console.log(`--- AURAFIT PRO BACKEND ---`);
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });

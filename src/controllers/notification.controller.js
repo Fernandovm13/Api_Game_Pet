@@ -1,38 +1,32 @@
-const {
-  listNotificationsByUserId,
-  markNotificationAsRead
-} = require('../repositories/notification.repository');
+const admin = require('../config/firebase');
+const userRepository = require('../repositories/user.repository');
 
-async function listMyNotifications(req, res) {
-  try {
-    const notifications = await listNotificationsByUserId(req.dbUser.id);
-    return res.json({ notifications });
-  } catch (error) {
-    return res.status(500).json({
-      message: 'Error listando notificaciones.',
-      error: error.message
-    });
+class NotificationController {
+  async sendTestNotification(req, res) {
+    const { targetUserId, title, body } = req.body;
+
+    try {
+      const user = await userRepository.findByFirebaseUid(targetUserId); 
+      
+      if (!user || !user.fcm_token) {
+        return res.status(404).json({ message: 'Usuario no encontrado o no tiene Token FCM registrado.' });
+      }
+
+      const message = {
+        notification: {
+          title: title || '💪 AuraFit Pro: ¡Neo te extraña!',
+          body: body || 'Llevas 24 horas sin entrenar. ¡Hagamos 20 sentadillas!',
+        },
+        token: user.fcm_token,
+      };
+
+      const response = await admin.messaging().send(message);
+      res.status(200).json({ message: 'Notificación enviada con éxito', response });
+    } catch (error) {
+      console.error('Error enviando notificación:', error);
+      res.status(500).json({ message: 'Error al enviar notificación' });
+    }
   }
 }
 
-async function markAsRead(req, res) {
-  try {
-    const { id } = req.params;
-    const ok = await markNotificationAsRead(Number(id), req.dbUser.id);
-
-    return res.json({
-      message: ok ? 'Notificación marcada como leída.' : 'No se encontró la notificación.',
-      success: ok
-    });
-  } catch (error) {
-    return res.status(500).json({
-      message: 'Error actualizando notificación.',
-      error: error.message
-    });
-  }
-}
-
-module.exports = {
-  listMyNotifications,
-  markAsRead
-};
+module.exports = new NotificationController();

@@ -1,27 +1,24 @@
-const { firebaseLogin } = require('../usecases/auth.usecase');
+const authUseCase = require('../usecases/auth.usecase');
 
-async function firebaseAuth(req, res) {
-  try {
-    const { idToken } = req.body;
-
-    if (!idToken) {
-      return res.status(400).json({ message: 'idToken es requerido.' });
+class AuthController {
+  async firebaseLogin(req, res) {
+    try {
+      const decodedUser = req.user;
+      const user = await authUseCase.loginOrRegister(decodedUser);
+      res.status(200).json({
+        message: 'Bienvenido(a) a AuraFit Pro',
+        user: {
+          id: user.id,
+          displayName: user.displayName,
+          level: user.level,
+          experience: user.experience
+        }
+      });
+    } catch (error) {
+      console.error('Error en Auth Controller:', error);
+      res.status(500).json({ message: 'Error interno al procesar el login.' });
     }
-
-    const result = await firebaseLogin(idToken);
-
-    return res.json({
-      message: 'Autenticación correcta.',
-      ...result
-    });
-  } catch (error) {
-    return res.status(401).json({
-      message: 'No se pudo autenticar con Firebase.',
-      error: error.message
-    });
   }
 }
 
-module.exports = {
-  firebaseAuth
-};
+module.exports = new AuthController();
