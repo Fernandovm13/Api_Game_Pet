@@ -39,6 +39,11 @@ class FriendRepository {
     );
     return rows[0];
   }
+
+  async findById(requestId) {
+    const [rows] = await db.execute('SELECT * FROM friends WHERE id = ?', [requestId]);
+    return rows[0];
+  }
 }
 
 module.exports = new FriendRepository();
