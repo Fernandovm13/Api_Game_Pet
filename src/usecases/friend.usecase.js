@@ -1,22 +1,18 @@
 const friendRepository = require('../repositories/friend.repository');
 const userRepository = require('../repositories/user.repository');
 
-class FriendUseCase {
-  async sendFriendRequest(fromFirebaseUid, targetFirebaseUid) {
+class FriendUseCase {  
+  async sendFriendRequest(fromFirebaseUid, targetEmail) {
     const fromUser = await userRepository.findByFirebaseUid(fromFirebaseUid);
-    const targetUser = await userRepository.findByFirebaseUid(targetFirebaseUid);
-
-    if (!targetUser) throw new Error('Atleta no encontrado.');
+    const targetUser = await userRepository.findByEmail(targetEmail); 
+    if (!targetUser) throw new Error('No se encontró ningún atleta con este correo.');
     if (fromUser.id === targetUser.id) throw new Error('No puedes agregarte a ti mismo.');
-
     const existing = await friendRepository.checkExisting(fromUser.id, targetUser.id);
     if (existing) throw new Error('Ya existe una solicitud o ya son amigos.');
-
     return await friendRepository.addRequest(fromUser.id, targetUser.id);
   }
 
   async acceptFriendship(userId, requestId) {
-    // Validar que el request sea para mi
     return await friendRepository.acceptRequest(userId, requestId);
   }
 

@@ -6,6 +6,11 @@ class UserRepository {
     return rows[0];
   }
 
+  async findByEmail(email) {
+    const [rows] = await db.execute('SELECT * FROM users WHERE email = ?', [email]);
+    return rows[0];
+  }
+
   async create(userData) {
     const { firebaseUid, email, displayName } = userData;
     const [result] = await db.execute(

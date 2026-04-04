@@ -3,8 +3,9 @@ const friendUseCase = require('../usecases/friend.usecase');
 class FriendController {
   async sendRequest(req, res) {
     try {
-      const { targetFirebaseUid } = req.body;
-      await friendUseCase.sendFriendRequest(req.user.uid, targetFirebaseUid);
+      const { email } = req.body; 
+      if(!email) return res.status(400).json({ message: "Se requiere un email" });
+      await friendUseCase.sendFriendRequest(req.user.uid, email);
       res.status(201).json({ message: 'Solicitud de amistad enviada con éxito.' });
     } catch (error) {
       console.error('Error al enviar solicitud:', error);
